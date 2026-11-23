@@ -1,5 +1,5 @@
-from PyQt6.QtCore import QRect, Qt, QPointF
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygonF
+from PyQt6.QtCore import QRect, Qt, QPointF, QRectF
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygonF, QPainterPath
 from PyQt6.QtWidgets import QWidget
 from tablut_model import COL_LETTERS, GRID_SIZE
 
@@ -8,8 +8,8 @@ MARGIN_SIDE = 50
 MARGIN_TOP = 25
 MARGIN_BOTTOM = 45
 COORD_FONT_SIZE = 11
-FRAME_BORDER_WIDTH = 8
-FRAME_OFFSET = 6
+FRAME_BORDER_WIDTH = 3
+FRAME_OFFSET = 4
 COORD_LABEL_GAP = 15
 
 
@@ -111,6 +111,44 @@ class TablutBoard(QWidget):
             painter.setBrush(QBrush(detail_color))
             painter.drawPolygon(diamond)
 
+
+    def _draw_corner_cell(self, painter: QPainter, rect: QRect) -> None:
+        cx = rect.center().x()
+        cy = rect.center().y()
+        size = min(rect.width(), rect.height())
+
+        # Cadre intérieur gravé
+        frame = rect.adjusted(4, 4, -4, -4)
+        painter.setPen(QPen(QColor("#7A5230"), 1.0, Qt.PenStyle.SolidLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(frame)
+
+        # Entrelacs celtique agrandi dans la case
+        loop_radius = size * 0.21
+        offset = size * 0.145
+        center_ring_radius = size * 0.22
+
+        path = QPainterPath()
+        centers = [
+            (cx - offset, cy - offset),
+            (cx + offset, cy - offset),
+            (cx + offset, cy + offset),
+            (cx - offset, cy + offset),
+        ]
+
+        for bx, by in centers:
+            path.addEllipse(QPointF(bx, by), loop_radius, loop_radius)
+
+        path.addEllipse(QPointF(cx, cy), center_ring_radius, center_ring_radius)
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(QPen(QColor("#5C3A21"), 1.5, Qt.PenStyle.SolidLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(path)
+        painter.restore()
+
+  
     def paintEvent(self, event):
         # crée un objet de dessin (QPainter) rattaché au widget
         painter = QPainter(self)
@@ -185,15 +223,11 @@ class TablutBoard(QWidget):
                 painter.drawRect(rect)
 
                 if (r, c) == (4, 4):
-
                     painter.setFont(QFont("Arial", int(round((x2 - x1) * 0.35)), QFont.Weight.Bold))
                     painter.setPen(QPen(QColor("#5C3A21"), 1))
                     painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "☩")
                 elif r in (0, 8) and c in (0, 8):
-                    painter.setPen(QPen(QColor("#7A5230"), 1, Qt.PenStyle.SolidLine))
-                    painter.drawRect(rect.adjusted(4, 4, -4, -4))
-                    painter.drawLine(x1 + 5, y1 + 5, x2 - 5, y2 - 5)
-                    painter.drawLine(x1 + 5, y2 - 5, x2 - 5, y1 + 5)
+                    self._draw_corner_cell(painter, rect)
 
         # Pièces (depuis l'état du Modèle)
         piece_radius = int(cell_size * PIECE_RADIUS_RATIO)
